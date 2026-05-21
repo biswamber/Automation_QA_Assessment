@@ -1,0 +1,306 @@
+{
+  "name": "GitHub Morning Brief Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "fbb4a341-83bd-45e2-ae77-eff957676e2a",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://api.github.com/search/repositories?q=automation+testing&sort=stars&order=desc&per_page=10",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "User-Agent",
+              "value": "n8n-automation-qa-assessment"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "b12f363a-2f2c-40a0-b994-5fcaef6bd292",
+      "name": "Search GitHub Repositories",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const repo = $json;\n\nconst stars = repo.stargazers_count || repo.stars || 0;\nconst forks = repo.forks_count || repo.forks || 0;\nconst language = repo.language || \"Not specified\";\nconst repoName = repo.full_name || repo.repo_name || \"Unknown Repository\";\nconst openIssues = repo.open_issues_count || \"Not available\";\nconst description = repo.description || \"No description available\";\nconst url = repo.html_url || repo.url || \"No URL available\";\n\nconst message = `GitHub Morning Brief\n\nTop Repository:\nName: ${repoName}\nStars: ${stars}\nForks: ${forks}\nLanguage: ${language}\nOpen Issues: ${openIssues}\nDescription: ${description}\nURL: ${url}\n\nStatus:\n${stars > 1000 ? \"High priority repo with strong community interest.\" : \"Normal priority repo.\"}`;\n\nreturn [\n  {\n    json: {\n      repo_name: repoName,\n      stars: stars,\n      forks: forks,\n      language: language,\n      url: url,\n      message: message\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        96
+      ],
+      "id": "67870402-ddee-4a92-9f90-a71ec773c8dc",
+      "name": "Create Digest Message"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d8f5d20d-bcc4-4138-9fde-b880eaa88c1c",
+              "leftValue": "={{$json.stars}}",
+              "rightValue": 1000,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        832,
+        96
+      ],
+      "id": "c830cd74-577d-4f12-ae98-14a986e1a193",
+      "name": "Check Stars Threshold"
+    },
+    {
+      "parameters": {
+        "chatId": "1928951775",
+        "text": "={{$json.message}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "e9976e98-8a47-45ba-be21-ff013b326c24",
+      "name": "Send High Priority Telegram Digest",
+      "webhookId": "0eba5492-8aae-4146-9691-5ae0db29e1ce",
+      "credentials": {
+        "telegramApi": {
+          "id": "ZJsHJZwxNOfi5T2I",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "1928951775",
+        "text": "={{$json.message}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1040,
+        192
+      ],
+      "id": "3349b039-8252-4677-a91b-9353e45bb2c1",
+      "name": "Send Normal Telegram Digest",
+      "webhookId": "2a67d883-b6d7-4584-8d86-8e04479b48bb",
+      "credentials": {
+        "telegramApi": {
+          "id": "ZJsHJZwxNOfi5T2I",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      message: `Workflow Error Alert\n\nThe GitHub repository details API request failed.\n\nAction Needed:\nPlease check the Get Top Repository Details node execution logs.\n\nThis fallback confirms the workflow did not fail silently.`\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        -80
+      ],
+      "id": "ed1e4f3c-adcd-4b97-9458-047d88942160",
+      "name": "Create Repo Details Error Message"
+    },
+    {
+      "parameters": {
+        "chatId": "1928951775",
+        "text": "={{$json.message}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        832,
+        -80
+      ],
+      "id": "9100fb41-1339-4e4f-812e-c7b88408e0f7",
+      "name": "Send Repo Details Error Alert",
+      "webhookId": "3a0fb1e5-5187-4c66-9eca-c4f7721b7798",
+      "credentials": {
+        "telegramApi": {
+          "id": "ZJsHJZwxNOfi5T2I",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "13c96a2d-1e32-4059-b01e-68e6860b958d",
+              "leftValue": "={{$json.error}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        416,
+        0
+      ],
+      "id": "5bf3581d-46de-4550-b50d-2784c20fd510",
+      "name": "Check GitHub Search Error"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Search GitHub Repositories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search GitHub Repositories": {
+      "main": [
+        [
+          {
+            "node": "Check GitHub Search Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Digest Message": {
+      "main": [
+        [
+          {
+            "node": "Check Stars Threshold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Stars Threshold": {
+      "main": [
+        [
+          {
+            "node": "Send High Priority Telegram Digest",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Normal Telegram Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Repo Details Error Message": {
+      "main": [
+        [
+          {
+            "node": "Send Repo Details Error Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check GitHub Search Error": {
+      "main": [
+        [
+          {
+            "node": "Create Repo Details Error Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Digest Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "6bebf5cd-45d4-47e7-ad11-e378e31f4989",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "863f71c4fd96890e8aca579caf840a553abed978064f90b48531e07264c9a129"
+  },
+  "id": "AinGCpAGY4s8lZ8X",
+  "tags": []
+}
